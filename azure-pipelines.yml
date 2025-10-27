@@ -10,20 +10,21 @@ variables:
   dotnetSdkVersion: '8.x'
 
 steps:
-# ✅ Use Node 18 LTS instead of default Node 20
+# ✅ Use Node 18 LTS
 - task: UseNode@1
   displayName: 'Use Node.js 18 LTS'
   inputs:
     version: '18.x'
 
-# ✅ Install dependencies safely (avoid node-gyp conflicts)
+# ✅ Install dependencies safely
 - script: |
     npm cache clean --force
     npm install --legacy-peer-deps
   displayName: 'Install npm dependencies'
 
 # ✅ Compile Sass assets
-- script: './node_modules/.bin/node-sass $(wwwrootDir) --output $(wwwrootDir)
+- script: |
+    ./node_modules/.bin/node-sass $(wwwrootDir) --output $(wwwrootDir)
   displayName: 'Compile Sass assets'
 
 # ✅ Run Gulp tasks
@@ -57,15 +58,17 @@ steps:
     arguments: '--no-restore --configuration $(buildConfiguration)'
     projects: '**/*.csproj'
 
+# ✅ Publish the .NET project
 - task: DotNetCoreCLI@2
   displayName: 'Publish the project - $(buildConfiguration)'
   inputs:
     command: 'publish'
     projects: '**/*.csproj'
     publishWebProjects: false
-    arguments: '--no-build --configuration $(buildConfiguration) --output $(Build.ArtifactStagingDirectory)/$(buildConfiguration)''
+    arguments: '--no-build --configuration $(buildConfiguration) --output $(Build.ArtifactStagingDirectory)/$(buildConfiguration)'
     zipAfterPublish: true
 
+# ✅ Publish artifacts
 - task: PublishBuildArtifacts@1
   displayName: 'Publish Artifact: drop'
   condition: succeeded()
