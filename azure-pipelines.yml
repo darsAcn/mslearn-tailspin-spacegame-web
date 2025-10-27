@@ -3,8 +3,6 @@ trigger:
 
 pool:
   vmImage: 'ubuntu-latest'
-  demands:
-  - npm
 
 variables:
   buildConfiguration: 'Release'
@@ -12,32 +10,46 @@ variables:
   dotnetSdkVersion: '8.x'
 
 steps:
+# ✅ Use Node.js 18 LTS to fix node-sass compatibility
+- task: UseNode@1
+  displayName: 'Use Node.js 18 LTS'
+  inputs:
+    version: '18.x'
+
+# ✅ Use .NET 8 SDK
 - task: UseDotNet@2
   displayName: 'Use .NET SDK $(dotnetSdkVersion)'
   inputs:
+    packageType: sdk
     version: '$(dotnetSdkVersion)'
 
-- task: Npm@1
-  displayName: 'Run npm install'
-  inputs:
-    verbose: false
+# ✅ Clean npm cache and install dependencies safely
+- script: |
+    npm cache clean --force
+    npm install --legacy-peer-deps
+  displayName: 'Install npm dependencies'
 
+# ✅ Compile Sass assets
 - script: './node_modules/.bin/node-sass $(wwwrootDir) --output $(wwwrootDir)'
   displayName: 'Compile Sass assets'
 
-- task: gulp@1
+# ✅ Run Gulp tasks
+- task: Gulp@1
   displayName: 'Run gulp tasks'
 
+# ✅ Write build info
 - script: 'echo "$(Build.DefinitionName), $(Build.BuildId), $(Build.BuildNumber)" > buildinfo.txt'
   displayName: 'Write build info'
   workingDirectory: $(wwwrootDir)
 
+# ✅ Restore .NET project dependencies
 - task: DotNetCoreCLI@2
   displayName: 'Restore project dependencies'
   inputs:
     command: 'restore'
     projects: '**/*.csproj'
 
+# ✅ Build the project
 - task: DotNetCoreCLI@2
   displayName: 'Build the project - $(buildConfiguration)'
   inputs:
@@ -45,6 +57,7 @@ steps:
     arguments: '--no-restore --configuration $(buildConfiguration)'
     projects: '**/*.csproj'
 
+# ✅ Restore local .NET tools (for reportgenerator, coverlet, etc.)
 - task: DotNetCoreCLI@2
   displayName: 'Install .NET Core tools from local manifest'
   inputs:
@@ -52,27 +65,31 @@ steps:
     custom: tool
     arguments: 'restore'
 
+# ✅ Run unit tests with code coverage
 - task: DotNetCoreCLI@2
-  displayName: 'Run unit tests - $(buildConfiguration)'
+  displayName: 'Run unit tests with coverage - $(buildConfiguration)'
   inputs:
     command: 'test'
     arguments: '--no-build --configuration $(buildConfiguration) /p:CollectCoverage=true /p:CoverletOutputFormat=cobertura /p:CoverletOutput=$(Build.SourcesDirectory)/TestResults/Coverage/'
     publishTestResults: true
     projects: '**/*.Tests.csproj'
 
+# ✅ Generate HTML code coverage report
 - task: DotNetCoreCLI@2
-  displayName: 'Create code coverage report'
+  displayName: 'Generate HTML coverage report'
   inputs:
     command: custom
     custom: tool
     arguments: 'run reportgenerator -reports:$(Build.SourcesDirectory)/**/coverage.cobertura.xml -targetdir:$(Build.SourcesDirectory)/CodeCoverage -reporttypes:HtmlInline_AzurePipelines'
 
+# ✅ Publish coverage to Azure DevOps UI
 - task: PublishCodeCoverageResults@1
   displayName: 'Publish code coverage report'
   inputs:
     codeCoverageTool: 'cobertura'
     summaryFileLocation: '$(Build.SourcesDirectory)/**/coverage.cobertura.xml'
 
+# ✅ Publish the project output
 - task: DotNetCoreCLI@2
   displayName: 'Publish the project - $(buildConfiguration)'
   inputs:
@@ -82,6 +99,7 @@ steps:
     arguments: '--no-build --configuration $(buildConfiguration) --output $(Build.ArtifactStagingDirectory)/$(buildConfiguration)'
     zipAfterPublish: true
 
+# ✅ Publish artifacts
 - task: PublishBuildArtifacts@1
   displayName: 'Publish Artifact: drop'
   condition: succeeded()
