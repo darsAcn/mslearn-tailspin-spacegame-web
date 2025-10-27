@@ -2,7 +2,7 @@ trigger:
 - '*'
 
 pool:
-  vmImage: 'ubuntu-20.04'
+  vmImage: 'ubuntu-latest'
 
 variables:
   buildConfiguration: 'Release'
@@ -10,36 +10,46 @@ variables:
   dotnetSdkVersion: '8.x'
 
 steps:
+# 🧩 Use .NET 8 SDK
 - task: UseDotNet@2
   displayName: 'Use .NET SDK $(dotnetSdkVersion)'
   inputs:
+    packageType: 'sdk'
     version: '$(dotnetSdkVersion)'
 
+# 🧩 Use Node.js 18 LTS (stable for npm builds)
 - task: NodeTool@0
   displayName: 'Use Node.js 18 LTS'
   inputs:
     versionSpec: '18.x'
 
+# 🧩 Install NPM dependencies
 - script: |
+    npm cache clean --force
     npm install --legacy-peer-deps
-  displayName: 'Run npm install'
+  displayName: 'Install npm dependencies'
 
+# 🧩 Compile Sass assets
 - script: './node_modules/.bin/node-sass $(wwwrootDir) --output $(wwwrootDir)'
   displayName: 'Compile Sass assets'
 
+# 🧩 Run Gulp tasks
 - task: Gulp@1
   displayName: 'Run gulp tasks'
 
+# 🧩 Write build info
 - script: 'echo "$(Build.DefinitionName), $(Build.BuildId), $(Build.BuildNumber)" > buildinfo.txt'
   displayName: 'Write build info'
   workingDirectory: $(wwwrootDir)
 
+# 🧩 Restore project dependencies
 - task: DotNetCoreCLI@2
   displayName: 'Restore project dependencies'
   inputs:
     command: 'restore'
     projects: '**/*.csproj'
 
+# 🧩 Build the project
 - task: DotNetCoreCLI@2
   displayName: 'Build the project - $(buildConfiguration)'
   inputs:
@@ -47,6 +57,7 @@ steps:
     arguments: '--no-restore --configuration $(buildConfiguration)'
     projects: '**/*.csproj'
 
+# 🧩 Run unit tests (optional)
 - task: DotNetCoreCLI@2
   displayName: 'Run unit tests - $(buildConfiguration)'
   inputs:
@@ -55,6 +66,7 @@ steps:
     publishTestResults: true
     projects: '**/*.Tests.csproj'
 
+# 🧩 Publish the project
 - task: DotNetCoreCLI@2
   displayName: 'Publish the project - $(buildConfiguration)'
   inputs:
@@ -64,6 +76,7 @@ steps:
     arguments: '--no-build --configuration $(buildConfiguration) --output $(Build.ArtifactStagingDirectory)/$(buildConfiguration)'
     zipAfterPublish: true
 
+# 🧩 Publish build artifacts
 - task: PublishBuildArtifacts@1
   displayName: 'Publish Artifact: drop'
   condition: succeeded()
