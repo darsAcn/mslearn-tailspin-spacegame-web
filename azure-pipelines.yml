@@ -35,11 +35,11 @@ steps:
 
 # ✅ .NET SDK setup
 - task: UseDotNet@2
-  displayName: 'Use .NET SDK 6.x'
+  displayName: 'Use .NET SDK 8.x'
   inputs:
     packageType: sdk
-    version: '6.x'
-
+    version: '8.x'
+    
 # ✅ Restore .NET project dependencies
 - task: DotNetCoreCLI@2
   displayName: 'Restore project dependencies'
