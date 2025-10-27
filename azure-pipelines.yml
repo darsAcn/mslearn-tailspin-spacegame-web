@@ -8,33 +8,46 @@ variables:
   buildConfiguration: 'Release'
 
 steps:
+# ✅ Use Node 18 LTS instead of default Node 20
+- task: UseNode@1
+  displayName: 'Use Node.js 18 LTS'
+  inputs:
+    version: '18.x'
+
+# ✅ Install dependencies safely (avoid node-gyp conflicts)
+- script: |
+    npm cache clean --force
+    npm install --legacy-peer-deps
+  displayName: 'Install npm dependencies'
+
+# ✅ Compile Sass assets
+- script: './node_modules/.bin/node-sass Tailspin.SpaceGame.Web/wwwroot --output Tailspin.SpaceGame.Web/wwwroot'
+  displayName: 'Compile Sass assets'
+
+# ✅ Run Gulp tasks
+- task: Gulp@1
+  displayName: 'Run Gulp tasks'
+
+# ✅ Record build info
+- script: 'echo "$(Build.DefinitionName), $(Build.BuildId), $(Build.BuildNumber)" > buildinfo.txt'
+  displayName: 'Write build info'
+  workingDirectory: Tailspin.SpaceGame.Web/wwwroot
+
+# ✅ .NET SDK setup
 - task: UseDotNet@2
   displayName: 'Use .NET SDK 6.x'
   inputs:
     packageType: sdk
     version: '6.x'
 
-- task: Npm@1
-  displayName: 'Run npm install'
-  inputs:
-    verbose: false
-
-- script: './node_modules/.bin/node-sass Tailspin.SpaceGame.Web/wwwroot --output Tailspin.SpaceGame.Web/wwwroot'
-  displayName: 'Compile Sass assets'
-
-- task: gulp@1
-  displayName: 'Run gulp tasks'
-
-- script: 'echo "$(Build.DefinitionName), $(Build.BuildId), $(Build.BuildNumber)" > buildinfo.txt'
-  displayName: 'Write build info'
-  workingDirectory: Tailspin.SpaceGame.Web/wwwroot
-
+# ✅ Restore .NET project dependencies
 - task: DotNetCoreCLI@2
   displayName: 'Restore project dependencies'
   inputs:
     command: 'restore'
     projects: '**/*.csproj'
 
+# ✅ Build the .NET project
 - task: DotNetCoreCLI@2
   displayName: 'Build the project - Release'
   inputs:
